@@ -1,0 +1,12 @@
+# Pulsify configuration
+# Get your DSN from the Pulsify dashboard
+dsn: ""
+
+# How often to flush buffered events (minutes)
+flush-interval-minutes: 5
+
+# Auto-capture console errors and exceptions
+collect-errors: true
+
+# How often to send server heartbeats (seconds)
+heartbeat-interval-seconds: 60

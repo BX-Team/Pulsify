@@ -1,0 +1,5 @@
+name: Pulsify
+main: org.bxteam.pulsify.bungee.PulsifyPlugin
+version: 1.0.0
+author: BxTeam
+description: Pulsify analytics SDK for BungeeCord
