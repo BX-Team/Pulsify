@@ -15,8 +15,13 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "pulsify", name = "Pulsify", version = "1.0.0",
-        description = "Pulsify analytics SDK for Velocity")
+@Plugin(
+        id = "pulsify",
+        name = "Pulsify",
+        version = BuildInfo.VERSION,
+        description = "Pulsify analytics SDK for Velocity proxy servers",
+        authors = {"BX Team"}
+)
 public final class PulsifyPlugin {
     private final ProxyServer server;
     private final Logger logger;

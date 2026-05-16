@@ -1,5 +1,0 @@
-name: Pulsify
-version: 1.0.0
-main: org.bxteam.pulsify.paper.PulsifyPlugin
-api-version: '1.16'
-description: Pulsify analytics SDK for Paper servers
