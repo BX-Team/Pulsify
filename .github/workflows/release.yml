@@ -112,7 +112,7 @@ jobs:
 
         name: 'Pulsify ${{ inputs.version }}'
         version: ${{ inputs.version }}
-        version-type: 'beta '
+        version-type: 'beta'
         changelog: ${{ steps.github_release.outputs.changelog }}
 
         loaders: |
