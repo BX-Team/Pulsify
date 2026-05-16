@@ -4,7 +4,7 @@ import org.bxteam.pulsify.StatClient;
 import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 public final class PlayerListener implements Listener {
@@ -15,8 +15,8 @@ public final class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void onLogin(PlayerLoginEvent e) {
-        String ip = e.getAddress() != null ? e.getAddress().getHostAddress() : null;
+    public void onJoin(PlayerJoinEvent e) {
+        String ip = e.getPlayer().getAddress() != null ? e.getPlayer().getAddress().getAddress().getHostAddress() : null;
         client.playerJoin(
             e.getPlayer().getUniqueId().toString(),
             Bukkit.getMinecraftVersion(),

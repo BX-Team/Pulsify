@@ -3,12 +3,15 @@ package org.bxteam.pulsify.collector;
 import org.bxteam.pulsify.ErrorLevel;
 import org.bxteam.pulsify.StatClient;
 
+import java.util.logging.Formatter;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.LogRecord;
+import java.util.logging.SimpleFormatter;
 
 public final class JulHandler extends Handler implements ErrorCollector {
+    private static final Formatter FORMATTER = new SimpleFormatter();
     private StatClient client;
     private String defaultPluginName;
 
@@ -35,11 +38,10 @@ public final class JulHandler extends Handler implements ErrorCollector {
         if (plugin == null || plugin.isBlank())
             plugin = defaultPluginName != null ? defaultPluginName : "server";
 
-        String message = record.getMessage();
         if (record.getThrown() != null) {
             client.error(plugin, record.getThrown(), level);
         } else {
-            client.error(plugin, message, level);
+            client.error(plugin, FORMATTER.formatMessage(record), level);
         }
     }
 

@@ -49,10 +49,10 @@ public final class Log4j2Appender extends AbstractAppender implements ErrorColle
         if (plugin == null || plugin.isBlank())
             plugin = defaultPluginName != null ? defaultPluginName : "server";
 
-        String message = event.getMessage().getFormattedMessage();
         if (event.getThrown() != null) {
             client.error(plugin, event.getThrown(), level);
         } else {
+            String message = event.getMessage() != null ? event.getMessage().getFormattedMessage() : null;
             client.error(plugin, message, level);
         }
     }

@@ -36,11 +36,14 @@ final class HeartbeatTask implements Runnable {
         );
 
         List<PluginInfo> plugins = server.getPluginManager().getPlugins().stream()
-            .map(p -> new PluginInfo(
-                p.getDescription().getName(),
-                p.getDescription().getVersion(),
-                true
-            ))
+            .map(p -> {
+                String version = p.getDescription().getVersion();
+                return new PluginInfo(
+                    p.getDescription().getName(),
+                    version != null ? version : "unknown",
+                    true
+                );
+            })
             .collect(Collectors.toList());
 
         client.heartbeat(serverInfo, plugins);
