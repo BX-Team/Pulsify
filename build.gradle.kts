@@ -1,4 +1,4 @@
 allprojects {
     group = "org.bxteam.pulsify"
-    version = "1.0.0"
+    version = "0.1.0"
 }
