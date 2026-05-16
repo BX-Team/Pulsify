@@ -50,6 +50,7 @@ public final class PulsifyPlugin {
             .dsn(dsn)
             .flushInterval(Duration.ofMinutes(config.getInt("flush-interval-minutes", 5)))
             .autoCollectErrors(config.getBoolean("collect-errors", true))
+            .ignorePlugins(config.getStringList("ignored-plugins"))
             .build();
 
         client.pingAsync().thenAccept(ok -> {

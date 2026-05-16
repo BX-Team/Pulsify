@@ -17,14 +17,19 @@ import java.io.Closeable;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public final class StatClient implements Closeable {
     private final EventQueue queue;
     private final HttpTransport transport;
     private final FlushScheduler scheduler;
+    private final Set<String> ignoredPlugins;
     private ErrorCollector errorCollector;
 
     private StatClient(Builder b) {
@@ -32,6 +37,7 @@ public final class StatClient implements Closeable {
         this.queue = new EventQueue(b.maxBatchSize);
         this.transport = new HttpTransport(dsn.ingestUrl(), dsn.token(), queue);
         this.scheduler = new FlushScheduler(queue, transport, b.flushInterval, b.maxBatchSize);
+        this.ignoredPlugins = Set.copyOf(b.ignoredPlugins);
         if (b.autoCollectErrors) {
             installErrorCollector("server");
         }
@@ -64,7 +70,9 @@ public final class StatClient implements Closeable {
     public void error(String plugin, Throwable t, ErrorLevel level) {
         StringWriter sw = new StringWriter();
         t.printStackTrace(new PrintWriter(sw));
-        captureError(plugin, t.getMessage(), sw.toString(), level);
+        String msg = t.getMessage();
+        if (msg == null || msg.isEmpty()) msg = t.getClass().getName();
+        captureError(plugin, msg, sw.toString(), level);
     }
 
     public void error(String plugin, String message, ErrorLevel level) {
@@ -72,7 +80,9 @@ public final class StatClient implements Closeable {
     }
 
     public void captureError(String plugin, String message, String stacktrace, ErrorLevel level) {
-        enqueue(new ErrorEvent(plugin, message, stacktrace != null ? stacktrace : "", level));
+        if (plugin != null && ignoredPlugins.contains(plugin.toLowerCase(Locale.ROOT))) return;
+        String safeMessage = (message == null || message.isEmpty()) ? "(no message)" : message;
+        enqueue(new ErrorEvent(plugin, safeMessage, stacktrace != null ? stacktrace : "", level));
     }
 
     public void heartbeat(ServerInfo server, List<PluginInfo> plugins) {
@@ -115,11 +125,22 @@ public final class StatClient implements Closeable {
         private Duration flushInterval = Duration.ofMinutes(5);
         private int maxBatchSize = 100;
         private boolean autoCollectErrors = false;
+        private final Set<String> ignoredPlugins = new HashSet<>();
 
         public Builder dsn(String dsn) { this.dsn = dsn; return this; }
         public Builder flushInterval(Duration d) { this.flushInterval = d; return this; }
         public Builder maxBatchSize(int n) { this.maxBatchSize = n; return this; }
         public Builder autoCollectErrors(boolean v) { this.autoCollectErrors = v; return this; }
+
+        public Builder ignorePlugin(String name) {
+            if (name != null && !name.isBlank()) ignoredPlugins.add(name.toLowerCase(Locale.ROOT));
+            return this;
+        }
+
+        public Builder ignorePlugins(Collection<String> names) {
+            if (names != null) names.forEach(this::ignorePlugin);
+            return this;
+        }
 
         public StatClient build() {
             if (dsn == null || dsn.isBlank()) throw new IllegalStateException("DSN is required");

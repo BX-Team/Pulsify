@@ -20,6 +20,7 @@ public final class PulsifyPlugin extends JavaPlugin {
             .dsn(dsn)
             .flushInterval(Duration.ofMinutes(getConfig().getInt("flush-interval-minutes", 5)))
             .autoCollectErrors(getConfig().getBoolean("collect-errors", true))
+            .ignorePlugins(getConfig().getStringList("ignored-plugins"))
             .build();
 
         client.pingAsync().thenAccept(ok -> {
