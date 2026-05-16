@@ -24,6 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Logger;
 
 public final class StatClient implements Closeable {
     private final EventQueue queue;
@@ -35,7 +36,7 @@ public final class StatClient implements Closeable {
     private StatClient(Builder b) {
         Dsn dsn = Dsn.parse(b.dsn);
         this.queue = new EventQueue(b.maxBatchSize);
-        this.transport = new HttpTransport(dsn.ingestUrl(), dsn.token(), queue);
+        this.transport = new HttpTransport(dsn.ingestUrl(), dsn.token(), queue, b.logger);
         this.scheduler = new FlushScheduler(queue, transport, b.flushInterval, b.maxBatchSize);
         this.ignoredPlugins = Set.copyOf(b.ignoredPlugins);
         if (b.autoCollectErrors) {
@@ -125,12 +126,14 @@ public final class StatClient implements Closeable {
         private Duration flushInterval = Duration.ofMinutes(5);
         private int maxBatchSize = 100;
         private boolean autoCollectErrors = false;
+        private Logger logger;
         private final Set<String> ignoredPlugins = new HashSet<>();
 
         public Builder dsn(String dsn) { this.dsn = dsn; return this; }
         public Builder flushInterval(Duration d) { this.flushInterval = d; return this; }
         public Builder maxBatchSize(int n) { this.maxBatchSize = n; return this; }
         public Builder autoCollectErrors(boolean v) { this.autoCollectErrors = v; return this; }
+        public Builder logger(Logger l) { this.logger = l; return this; }
 
         public Builder ignorePlugin(String name) {
             if (name != null && !name.isBlank()) ignoredPlugins.add(name.toLowerCase(Locale.ROOT));

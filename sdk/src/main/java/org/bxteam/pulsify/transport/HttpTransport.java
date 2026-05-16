@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 public final class HttpTransport {
     private final HttpClient httpClient;
@@ -20,11 +21,13 @@ public final class HttpTransport {
     private final String ingestUrl;
     private final String bearerToken;
     private final EventQueue queue;
+    private final Logger logger;
 
-    public HttpTransport(String ingestUrl, String token, EventQueue queue) {
+    public HttpTransport(String ingestUrl, String token, EventQueue queue, Logger logger) {
         this.ingestUrl = ingestUrl;
         this.bearerToken = token;
         this.queue = queue;
+        this.logger = logger != null ? logger : Logger.getLogger("Pulsify");
         this.httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
@@ -58,7 +61,7 @@ public final class HttpTransport {
             String body = mapper.writeValueAsString(events);
             sendWithRetry(body, events, 0);
         } catch (Exception e) {
-            System.err.println("[Pulsify] Serialization failed: " + e.getMessage());
+            logger.severe("[Pulsify] Serialization failed: " + e.getMessage());
         }
     }
 
@@ -77,17 +80,17 @@ public final class HttpTransport {
 
             if (status == 429) {
                 events.forEach(queue::enqueue);
-                System.err.println("[Pulsify] Rate limited (429), events re-queued.");
+                logger.warning("[Pulsify] Rate limited (429), events re-queued.");
             } else if (status >= 500 && attempt == 0) {
                 TimeUnit.SECONDS.sleep(5);
                 sendWithRetry(body, events, 1);
             } else if (status >= 400) {
-                System.err.println("[Pulsify] Request rejected (" + status + "): " + response.body());
+                logger.warning("[Pulsify] Request rejected (" + status + "): " + response.body());
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (Exception e) {
-            System.err.println("[Pulsify] HTTP error: " + e.getMessage());
+            logger.warning("[Pulsify] HTTP error: " + e.getMessage());
         }
     }
 }
