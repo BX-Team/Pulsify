@@ -12,16 +12,21 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 public final class HttpTransport {
+    private static final long BASE_BACKOFF_MS = 5_000;
+    private static final long MAX_BACKOFF_MS = 120_000;
+
     private final HttpClient httpClient;
     private final ObjectMapper mapper;
     private final String ingestUrl;
     private final String bearerToken;
     private final EventQueue queue;
     private final Logger logger;
+    private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
+    private volatile long backoffUntilMs = 0;
 
     public HttpTransport(String ingestUrl, String token, EventQueue queue, Logger logger) {
         this.ingestUrl = ingestUrl;
@@ -55,17 +60,31 @@ public final class HttpTransport {
         });
     }
 
-    public void send(List<Object> events) {
-        if (events.isEmpty()) return;
-        try {
-            String body = mapper.writeValueAsString(events);
-            sendWithRetry(body, events, 0);
-        } catch (Exception e) {
-            logger.severe("[Pulsify] Serialization failed: " + e.getMessage());
-        }
+    /** True while inside a backoff window opened by recent retryable failures. */
+    public boolean isBackingOff() {
+        return System.currentTimeMillis() < backoffUntilMs;
     }
 
-    private void sendWithRetry(String body, List<Object> events, int attempt) {
+    /**
+     * Sends one batch synchronously.
+     *
+     * @return {@code true} if the caller may keep draining the queue — the batch was
+     *         delivered, or permanently rejected and dropped. {@code false} on a
+     *         retryable failure: the events were re-queued and a backoff window was
+     *         opened, so the caller must stop draining until it expires.
+     */
+    public boolean send(List<Object> events) {
+        if (events.isEmpty()) return true;
+
+        String body;
+        try {
+            body = mapper.writeValueAsString(events);
+        } catch (Exception e) {
+            // A malformed payload will never serialize, so retrying is pointless — drop it.
+            logger.severe("[Pulsify] Serialization failed, dropping " + events.size() + " events: " + e.getMessage());
+            return true;
+        }
+
         try {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(ingestUrl))
@@ -78,19 +97,54 @@ public final class HttpTransport {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             int status = response.statusCode();
 
-            if (status == 429) {
-                events.forEach(queue::enqueue);
-                logger.warning("[Pulsify] Rate limited (429), events re-queued.");
-            } else if (status >= 500 && attempt == 0) {
-                TimeUnit.SECONDS.sleep(5);
-                sendWithRetry(body, events, 1);
-            } else if (status >= 400) {
-                logger.warning("[Pulsify] Request rejected (" + status + "): " + response.body());
+            if (status >= 200 && status < 300) {
+                onSuccess();
+                return true;
             }
+
+            if (status == 429 || status >= 500) {
+                // Transient (rate limited / server error): keep the data and back off
+                // so we don't hammer the API on the next flush tick.
+                requeue(events);
+                long delay = backoff();
+                logger.warning("[Pulsify] " + (status == 429 ? "Rate limited" : "Server error " + status)
+                    + ", re-queued " + events.size() + " events; backing off " + (delay / 1000) + "s.");
+                return false;
+            }
+
+            // Other 4xx: client-side issue (bad DSN, rejected payload). Retrying won't
+            // help so drop the batch, but the server is reachable — clear any backoff.
+            onSuccess();
+            logger.warning("[Pulsify] Request rejected (" + status + "), dropping " + events.size()
+                + " events: " + response.body());
+            return true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            requeue(events);
+            return false;
         } catch (Exception e) {
-            logger.warning("[Pulsify] HTTP error: " + e.getMessage());
+            // Network error / timeout: don't lose the data, back off and retry next flush.
+            requeue(events);
+            long delay = backoff();
+            logger.warning("[Pulsify] HTTP error, re-queued " + events.size() + " events; backing off "
+                + (delay / 1000) + "s: " + e.getMessage());
+            return false;
         }
+    }
+
+    private void requeue(List<Object> events) {
+        events.forEach(queue::enqueue);
+    }
+
+    private void onSuccess() {
+        consecutiveFailures.set(0);
+        backoffUntilMs = 0;
+    }
+
+    private long backoff() {
+        int failures = consecutiveFailures.incrementAndGet();
+        long delay = Math.min(BASE_BACKOFF_MS * (1L << Math.min(failures - 1, 5)), MAX_BACKOFF_MS);
+        backoffUntilMs = System.currentTimeMillis() + delay;
+        return delay;
     }
 }

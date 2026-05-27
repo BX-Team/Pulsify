@@ -30,6 +30,7 @@ public final class JulHandler extends Handler implements ErrorCollector {
     @Override
     public void publish(LogRecord record) {
         if (client == null || !isLoggable(record)) return;
+        if (isSelfLog(record.getLoggerName())) return;
 
         ErrorLevel level = mapLevel(record.getLevel());
         if (level == null) return;

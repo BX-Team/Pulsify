@@ -35,9 +35,9 @@ public final class StatClient implements Closeable {
 
     private StatClient(Builder b) {
         Dsn dsn = Dsn.parse(b.dsn);
-        this.queue = new EventQueue(b.maxBatchSize);
+        this.queue = new EventQueue(b.maxBatchSize, b.maxQueueSize);
         this.transport = new HttpTransport(dsn.ingestUrl(), dsn.token(), queue, b.logger);
-        this.scheduler = new FlushScheduler(queue, transport, b.flushInterval, b.maxBatchSize);
+        this.scheduler = new FlushScheduler(queue, transport, b.flushInterval);
         this.ignoredPlugins = Set.copyOf(b.ignoredPlugins);
         if (b.autoCollectErrors) {
             installErrorCollector("server");
@@ -125,6 +125,7 @@ public final class StatClient implements Closeable {
         private String dsn;
         private Duration flushInterval = Duration.ofMinutes(5);
         private int maxBatchSize = 100;
+        private int maxQueueSize = 10_000;
         private boolean autoCollectErrors = false;
         private Logger logger;
         private final Set<String> ignoredPlugins = new HashSet<>();
@@ -132,6 +133,7 @@ public final class StatClient implements Closeable {
         public Builder dsn(String dsn) { this.dsn = dsn; return this; }
         public Builder flushInterval(Duration d) { this.flushInterval = d; return this; }
         public Builder maxBatchSize(int n) { this.maxBatchSize = n; return this; }
+        public Builder maxQueueSize(int n) { this.maxQueueSize = n; return this; }
         public Builder autoCollectErrors(boolean v) { this.autoCollectErrors = v; return this; }
         public Builder logger(Logger l) { this.logger = l; return this; }
 

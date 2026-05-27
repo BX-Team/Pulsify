@@ -41,6 +41,7 @@ public final class Log4j2Appender extends AbstractAppender implements ErrorColle
     @Override
     public void append(LogEvent event) {
         if (client == null) return;
+        if (isSelfLog(event.getLoggerName())) return;
 
         ErrorLevel level = mapLevel(event.getLevel());
         if (level == null) return;

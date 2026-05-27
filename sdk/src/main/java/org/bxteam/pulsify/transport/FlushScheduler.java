@@ -10,12 +10,10 @@ public final class FlushScheduler {
     private final ScheduledExecutorService executor;
     private final EventQueue queue;
     private final HttpTransport transport;
-    private final int maxBatchSize;
 
-    public FlushScheduler(EventQueue queue, HttpTransport transport, Duration flushInterval, int maxBatchSize) {
+    public FlushScheduler(EventQueue queue, HttpTransport transport, Duration flushInterval) {
         this.queue = queue;
         this.transport = transport;
-        this.maxBatchSize = maxBatchSize;
         this.executor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "pulsify-flush");
             t.setDaemon(true);
@@ -32,9 +30,15 @@ public final class FlushScheduler {
     }
 
     public void flush() {
+        // Skip while backing off after recent failures — re-queued events would
+        // otherwise be drained and re-sent immediately, hammering the API.
+        if (transport.isBackingOff()) return;
+
         List<Object> batch;
         while (!(batch = queue.drain()).isEmpty()) {
-            transport.send(batch);
+            // Stop on a retryable failure: the batch was re-queued and a backoff
+            // window opened, so draining again now would just re-send it.
+            if (!transport.send(batch)) break;
         }
     }
 
