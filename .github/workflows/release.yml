@@ -82,6 +82,13 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Publish Pulsify SDK to Maven Repository
+      continue-on-error: true
+      run: ./gradlew pulsify-sdk:publish
+      env:
+        REPO_USERNAME: ${{ secrets.REPO_USERNAME }}
+        REPO_PASSWORD: ${{ secrets.REPO_SECRET }}
+
     - name: Release to GitHub
       uses: softprops/action-gh-release@v3
       with:
@@ -151,6 +158,9 @@ jobs:
           1.21.9
           1.21.10
           1.21.11
+          26.1
+          26.1.1
+          26.1.2
         java: 17
 
     - name: Release BungeeCord to Modrinth
@@ -202,6 +212,9 @@ jobs:
           1.21.9
           1.21.10
           1.21.11
+          26.1
+          26.1.1
+          26.1.2
         java: 17
 
     - name: Release Velocity to Modrinth
@@ -252,4 +265,7 @@ jobs:
           1.21.9
           1.21.10
           1.21.11
+          26.1
+          26.1.1
+          26.1.2
         java: 17

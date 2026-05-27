@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":pulsify-sdk"))
+    implementation(project(":sdk"))
     compileOnly("com.velocitypowered:velocity-api:3.3.0-SNAPSHOT")
     annotationProcessor("com.velocitypowered:velocity-api:3.3.0-SNAPSHOT")
 }

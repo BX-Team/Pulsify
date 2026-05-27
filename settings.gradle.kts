@@ -1,15 +1,6 @@
 rootProject.name = "Pulsify"
 
-setOf(
-    "sdk"
-).forEach {
-    subProject(it)
-}
-
-fun subProject(name: String) {
-    include(":pulsify-$name")
-    project(":pulsify-$name").projectDir = file(name)
-}
+include(":sdk")
 
 setOf(
     "paper",

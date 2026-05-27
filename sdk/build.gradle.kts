@@ -1,5 +1,6 @@
 plugins {
     id("pulsify-java")
+    id("pulsify-publish")
     id("pulsify-repositories")
 }
 

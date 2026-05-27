@@ -32,7 +32,35 @@ If you are a server owner looking to connect your server to Pulsify, follow thes
 That's it! Your server should now be connected to Pulsify, and server stats, player events, and errors will start appearing on your dashboard.
 
 ## 🚀 Quick Start for Developers
-Initialize the client once during plugin startup:
+
+### ➕ Add our Repository
+```kts
+maven("https://repo.bxteam.org/releases")
+```
+```xml
+<repository>
+    <id>bx-team-releases</id>
+    <url>https://repo.bxteam.org/releases</url>
+</repository>
+```
+
+### ➕ Add Pulsify SDK to dependencies
+```kts
+dependencies {
+    implementation("org.bxteam.pulsify:sdk:0.1.0")
+}
+```
+```xml
+<dependency>
+    <groupId>org.bxteam.pulsify</groupId>
+    <artifactId>sdk</artifactId>
+    <version>0.1.0</version>
+    <scope>compile</scope>
+</dependency>
+```
+
+### 🔌 Initialize the client
+Create a single `StatClient` once during plugin startup and reuse it for the lifetime of your plugin. Pass your DSN key and enable automatic error collection if you want unhandled exceptions captured for you.
 
 ```java
 StatClient client = StatClient.builder()
@@ -51,7 +79,8 @@ client.error("my-plugin", exception);
 client.metric("tps", server.getTPS()[0]);
 ```
 
-Close the client on shutdown to flush pending events:
+### 🔒 Close the client
+Call `close()` on plugin shutdown to flush any pending events from the queue and release resources. Skipping this may drop events that haven't been sent yet.
 
 ```java
 client.close();

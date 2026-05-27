@@ -6,7 +6,7 @@ plugins {
 }
 
 dependencies {
-    implementation(project(":pulsify-sdk"))
+    implementation(project(":sdk"))
     compileOnly("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
 }
 
