@@ -83,6 +83,11 @@ public final class HttpTransport {
         return System.currentTimeMillis() < backoffUntilMs;
     }
 
+    /** Name of the logger this transport reports failures to — lets the error collector skip them. */
+    public String loggerName() {
+        return logger.getName();
+    }
+
     /**
      * Sends one batch synchronously.
      *

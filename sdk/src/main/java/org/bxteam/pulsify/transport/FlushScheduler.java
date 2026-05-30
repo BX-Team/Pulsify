@@ -3,6 +3,7 @@ package org.bxteam.pulsify.transport;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -35,8 +36,11 @@ public final class FlushScheduler {
 
     /** Triggers an off-thread flush when the queue has filled a batch; a no-op otherwise. */
     public void checkAndFlushIfFull() {
-        if (queue.isFull()) {
+        if (!queue.isFull()) return;
+        try {
             executor.execute(this::flush);
+        } catch (RejectedExecutionException ignored) {
+            // Scheduler already shut down (client closing); the final drain in shutdown() covers it.
         }
     }
 
@@ -49,7 +53,10 @@ public final class FlushScheduler {
         // Skip while backing off after recent failures — re-queued events would
         // otherwise be drained and re-sent immediately, hammering the API.
         if (transport.isBackingOff()) return;
+        drain();
+    }
 
+    private void drain() {
         List<Object> batch;
         while (!(batch = queue.drain()).isEmpty()) {
             // Stop on a retryable failure: the batch was re-queued and a backoff
@@ -58,14 +65,20 @@ public final class FlushScheduler {
         }
     }
 
-    /** Performs a final flush, then shuts the executor down, waiting up to 30s for it to drain. */
+    /**
+     * Stops the scheduler, waits up to 30s for an in-flight flush to finish, then drains any
+     * remaining events on the calling thread. Shutting the executor down <em>before</em> the
+     * final drain guarantees it can't run concurrently with a periodic flush (which would
+     * interleave two sends and corrupt backoff state); the final drain bypasses any backoff
+     * window so events buffered at close time aren't silently dropped.
+     */
     public void shutdown() {
+        executor.shutdown();
         try {
-            flush();
-            executor.shutdown();
             executor.awaitTermination(30, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        drain();
     }
 }

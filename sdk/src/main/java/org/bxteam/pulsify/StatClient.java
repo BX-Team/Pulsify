@@ -186,6 +186,15 @@ public final class StatClient implements Closeable {
         return transport.ping();
     }
 
+    /**
+     * Name of the logger the transport reports its own send failures to. Consumed by the auto
+     * error collector so it can skip those records and avoid re-capturing Pulsify's own warnings
+     * into an endless feedback loop. Public only because the collectors live in a sub-package.
+     */
+    public String transportLoggerName() {
+        return transport.loggerName();
+    }
+
     /** Flushes all buffered events now, draining the queue on the calling thread. */
     public void flush() {
         scheduler.flush();

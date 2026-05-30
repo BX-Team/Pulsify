@@ -17,6 +17,7 @@ import org.bxteam.pulsify.StatClient;
 public final class Log4j2Appender extends AbstractAppender implements ErrorCollector {
     private StatClient client;
     private String defaultPluginName;
+    private String internalLoggerName;
     private LoggerContext context;
 
     public Log4j2Appender() {
@@ -27,6 +28,7 @@ public final class Log4j2Appender extends AbstractAppender implements ErrorColle
     public void install(StatClient client, String pluginName) {
         this.client = client;
         this.defaultPluginName = pluginName;
+        this.internalLoggerName = client.transportLoggerName();
         this.context = (LoggerContext) LogManager.getContext(false);
         context.getConfiguration().addAppender(this);
         context.getConfiguration().getRootLogger().addAppender(this, Level.WARN, null);
@@ -46,7 +48,7 @@ public final class Log4j2Appender extends AbstractAppender implements ErrorColle
     @Override
     public void append(LogEvent event) {
         if (client == null) return;
-        if (isSelfLog(event.getLoggerName())) return;
+        if (isSelfLog(event.getLoggerName(), internalLoggerName)) return;
 
         ErrorLevel level = mapLevel(event.getLevel());
         if (level == null) return;

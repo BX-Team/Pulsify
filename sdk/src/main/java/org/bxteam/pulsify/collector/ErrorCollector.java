@@ -21,12 +21,20 @@ public interface ErrorCollector {
     void uninstall();
 
     /**
-     * Whether a log record originated from Pulsify itself. Such records must be skipped:
-     * the transport logs its own send failures as warnings, and capturing those as error
-     * events would feed them back into the queue — an endless feedback loop.
+     * Whether a log record originated from Pulsify itself. Such records must be skipped: the
+     * transport logs its own send failures as warnings, and capturing those as error events
+     * would feed them back into the queue — an endless feedback loop.
+     *
+     * <p>Those transport warnings may land on a user-supplied logger (see
+     * {@code StatClient.Builder.logger}), not just the built-in {@code Pulsify} loggers, so the
+     * transport's own logger name is matched as well.
+     *
+     * @param loggerName         logger that emitted the record
+     * @param internalLoggerName name of the transport's logger, may be {@code null}
      */
-    default boolean isSelfLog(String loggerName) {
-        return loggerName != null
-            && (loggerName.equals("Pulsify") || loggerName.startsWith("org.bxteam.pulsify"));
+    default boolean isSelfLog(String loggerName, String internalLoggerName) {
+        if (loggerName == null) return false;
+        if (loggerName.equals("Pulsify") || loggerName.startsWith("org.bxteam.pulsify")) return true;
+        return internalLoggerName != null && loggerName.equals(internalLoggerName);
     }
 }

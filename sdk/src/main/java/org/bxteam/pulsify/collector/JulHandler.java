@@ -18,11 +18,13 @@ public final class JulHandler extends Handler implements ErrorCollector {
     private static final Formatter FORMATTER = new SimpleFormatter();
     private StatClient client;
     private String defaultPluginName;
+    private String internalLoggerName;
 
     @Override
     public void install(StatClient client, String pluginName) {
         this.client = client;
         this.defaultPluginName = pluginName;
+        this.internalLoggerName = client.transportLoggerName();
         LogManager.getLogManager().getLogger("").addHandler(this);
     }
 
@@ -34,7 +36,7 @@ public final class JulHandler extends Handler implements ErrorCollector {
     @Override
     public void publish(LogRecord record) {
         if (client == null || !isLoggable(record)) return;
-        if (isSelfLog(record.getLoggerName())) return;
+        if (isSelfLog(record.getLoggerName(), internalLoggerName)) return;
 
         ErrorLevel level = mapLevel(record.getLevel());
         if (level == null) return;
