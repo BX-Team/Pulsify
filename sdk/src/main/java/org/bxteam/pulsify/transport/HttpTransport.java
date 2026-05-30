@@ -15,6 +15,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
+/**
+ * Serializes event batches to JSON and POSTs them to the ingest endpoint. Encapsulates the
+ * delivery policy: transient failures (HTTP 429/5xx, network errors) re-queue the batch and
+ * open an exponential backoff window so the next flush waits instead of hammering the API;
+ * permanent failures (other 4xx, unserializable payloads) drop the batch. JSON is rendered in
+ * snake_case with nulls omitted to match the server schema.
+ */
 public final class HttpTransport {
     private static final long BASE_BACKOFF_MS = 5_000;
     private static final long MAX_BACKOFF_MS = 120_000;
@@ -28,6 +35,12 @@ public final class HttpTransport {
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
     private volatile long backoffUntilMs = 0;
 
+    /**
+     * @param ingestUrl resolved ingest endpoint from the {@link org.bxteam.pulsify.Dsn}
+     * @param token     bearer token sent on every request
+     * @param queue     buffer that retryable batches are re-queued into
+     * @param logger    where send failures are reported; a {@code "Pulsify"} logger when null
+     */
     public HttpTransport(String ingestUrl, String token, EventQueue queue, Logger logger) {
         this.ingestUrl = ingestUrl;
         this.bearerToken = token;
@@ -42,6 +55,11 @@ public final class HttpTransport {
             .setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
 
+    /**
+     * Probes the ping endpoint to verify connectivity and credentials without enqueuing data.
+     *
+     * @return a future completing with {@code true} on HTTP 200, {@code false} otherwise
+     */
     public CompletableFuture<Boolean> ping() {
         String pingUrl = ingestUrl.replace("/api/v1/e/", "/api/v1/ping/");
         return CompletableFuture.supplyAsync(() -> {

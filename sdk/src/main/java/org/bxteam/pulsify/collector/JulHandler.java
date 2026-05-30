@@ -10,6 +10,10 @@ import java.util.logging.LogManager;
 import java.util.logging.LogRecord;
 import java.util.logging.SimpleFormatter;
 
+/**
+ * {@link ErrorCollector} for {@code java.util.logging}. Attaches as a root-logger handler and
+ * forwards records at {@code WARNING} and above to the client. Used when Log4j2 is absent.
+ */
 public final class JulHandler extends Handler implements ErrorCollector {
     private static final Formatter FORMATTER = new SimpleFormatter();
     private StatClient client;

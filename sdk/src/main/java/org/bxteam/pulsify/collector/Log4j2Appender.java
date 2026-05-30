@@ -9,6 +9,11 @@ import org.apache.logging.log4j.core.config.Property;
 import org.bxteam.pulsify.ErrorLevel;
 import org.bxteam.pulsify.StatClient;
 
+/**
+ * {@link ErrorCollector} for Log4j2. Registers itself on the root logger at {@code WARN} and
+ * above and forwards matching events to the client. Preferred backend on modern Paper/Velocity
+ * servers, which run Log4j2.
+ */
 public final class Log4j2Appender extends AbstractAppender implements ErrorCollector {
     private StatClient client;
     private String defaultPluginName;
