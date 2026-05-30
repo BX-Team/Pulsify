@@ -8,10 +8,18 @@ public record ErrorEvent(
     String plugin,
     ErrorDetail error
 ) {
-    public record ErrorDetail(String message, String stacktrace, ErrorLevel level) {}
+    public record ErrorDetail(
+        String message,
+        String stacktrace,
+        ErrorLevel level,
+        String serverVersion,
+        String serverSoftware,
+        String pluginVersion
+    ) {}
 
-    public ErrorEvent(String plugin, String message, String stacktrace, ErrorLevel level) {
+    public ErrorEvent(String plugin, String message, String stacktrace, ErrorLevel level,
+                      String serverVersion, String serverSoftware, String pluginVersion) {
         this("error", System.currentTimeMillis(), plugin,
-            new ErrorDetail(message, stacktrace, level));
+            new ErrorDetail(message, stacktrace, level, serverVersion, serverSoftware, pluginVersion));
     }
 }

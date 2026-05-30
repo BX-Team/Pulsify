@@ -24,6 +24,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 public final class StatClient implements Closeable {
@@ -31,6 +33,10 @@ public final class StatClient implements Closeable {
     private final HttpTransport transport;
     private final FlushScheduler scheduler;
     private final Set<String> ignoredPlugins;
+    private final String serverVersion;
+    private final String serverSoftware;
+    private final Function<String, String> pluginVersionResolver;
+    private final double sampleRate;
     private ErrorCollector errorCollector;
 
     private StatClient(Builder b) {
@@ -39,6 +45,10 @@ public final class StatClient implements Closeable {
         this.transport = new HttpTransport(dsn.ingestUrl(), dsn.token(), queue, b.logger);
         this.scheduler = new FlushScheduler(queue, transport, b.flushInterval);
         this.ignoredPlugins = Set.copyOf(b.ignoredPlugins);
+        this.serverVersion = b.serverVersion;
+        this.serverSoftware = b.serverSoftware;
+        this.pluginVersionResolver = b.pluginVersionResolver;
+        this.sampleRate = b.sampleRate;
         if (b.autoCollectErrors) {
             installErrorCollector("server");
         }
@@ -61,7 +71,7 @@ public final class StatClient implements Closeable {
     }
 
     public void metric(String name, double value, Map<String, String> labels) {
-        enqueue(new MetricEvent(name, value, labels));
+        enqueueSampled(new MetricEvent(name, value, labels));
     }
 
     public void error(String plugin, Throwable t) {
@@ -83,7 +93,18 @@ public final class StatClient implements Closeable {
     public void captureError(String plugin, String message, String stacktrace, ErrorLevel level) {
         if (plugin != null && ignoredPlugins.contains(plugin.toLowerCase(Locale.ROOT))) return;
         String safeMessage = (message == null || message.isEmpty()) ? "(no message)" : message;
-        enqueue(new ErrorEvent(plugin, safeMessage, stacktrace != null ? stacktrace : "", level));
+        // Errors are never sampled — full fidelity is the whole point of the product.
+        enqueue(new ErrorEvent(plugin, safeMessage, stacktrace != null ? stacktrace : "", level,
+            serverVersion, serverSoftware, resolvePluginVersion(plugin)));
+    }
+
+    private String resolvePluginVersion(String plugin) {
+        if (pluginVersionResolver == null || plugin == null) return null;
+        try {
+            return pluginVersionResolver.apply(plugin);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public void heartbeat(ServerInfo server, List<PluginInfo> plugins) {
@@ -91,11 +112,11 @@ public final class StatClient implements Closeable {
     }
 
     public void playerJoin(String uuid, String clientVersion, String playerIp) {
-        enqueue(PlayerEvent.join(uuid, clientVersion, playerIp));
+        enqueueSampled(PlayerEvent.join(uuid, clientVersion, playerIp));
     }
 
     public void playerQuit(String uuid) {
-        enqueue(PlayerEvent.quit(uuid));
+        enqueueSampled(PlayerEvent.quit(uuid));
     }
 
     public CompletableFuture<Boolean> pingAsync() {
@@ -117,6 +138,16 @@ public final class StatClient implements Closeable {
         scheduler.checkAndFlushIfFull();
     }
 
+    /**
+     * Enqueues a high-volume event subject to client-side sampling. With a sample rate
+     * below 1.0 a fraction of these events is dropped before they ever hit the queue,
+     * keeping the network/storage cost bounded on busy servers.
+     */
+    private void enqueueSampled(Object event) {
+        if (sampleRate < 1.0 && ThreadLocalRandom.current().nextDouble() >= sampleRate) return;
+        enqueue(event);
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -129,6 +160,10 @@ public final class StatClient implements Closeable {
         private boolean autoCollectErrors = false;
         private Logger logger;
         private final Set<String> ignoredPlugins = new HashSet<>();
+        private String serverVersion;
+        private String serverSoftware;
+        private Function<String, String> pluginVersionResolver;
+        private double sampleRate = 1.0;
 
         public Builder dsn(String dsn) { this.dsn = dsn; return this; }
         public Builder flushInterval(Duration d) { this.flushInterval = d; return this; }
@@ -136,6 +171,18 @@ public final class StatClient implements Closeable {
         public Builder maxQueueSize(int n) { this.maxQueueSize = n; return this; }
         public Builder autoCollectErrors(boolean v) { this.autoCollectErrors = v; return this; }
         public Builder logger(Logger l) { this.logger = l; return this; }
+
+        /** Minecraft version stamped onto every captured error (e.g. "1.21.4"). */
+        public Builder serverVersion(String v) { this.serverVersion = v; return this; }
+
+        /** Server software stamped onto every captured error (e.g. "Paper"). */
+        public Builder serverSoftware(String v) { this.serverSoftware = v; return this; }
+
+        /** Resolves a plugin name to its version, stamped onto errors tagged with that plugin. */
+        public Builder pluginVersionResolver(Function<String, String> r) { this.pluginVersionResolver = r; return this; }
+
+        /** Fraction (0.0–1.0) of high-volume events (player events, metrics) to keep. Errors are never sampled. */
+        public Builder sampleRate(double r) { this.sampleRate = Math.max(0.0, Math.min(1.0, r)); return this; }
 
         public Builder ignorePlugin(String name) {
             if (name != null && !name.isBlank()) ignoredPlugins.add(name.toLowerCase(Locale.ROOT));

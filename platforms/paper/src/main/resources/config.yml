@@ -11,6 +11,10 @@ collect-errors: true
 # How often to send server heartbeats (seconds)
 heartbeat-interval-seconds: 60
 
+# Fraction (0.0–1.0) of high-volume events (player joins/quits, custom metrics) to keep.
+# Lower this on busy servers to cut traffic. Errors and heartbeats are always sent.
+sample-rate: 1.0
+
 # Plugin IDs (logger names, case-insensitive) whose errors should NOT be sent to the dashboard
 ignored-plugins: []
 # Example:

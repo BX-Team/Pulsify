@@ -102,6 +102,12 @@ final class PlatformConfig {
         return Boolean.parseBoolean((String) v);
     }
 
+    double getDouble(String key, double def) {
+        Object v = values.get(key);
+        if (!(v instanceof String)) return def;
+        try { return Double.parseDouble((String) v); } catch (NumberFormatException e) { return def; }
+    }
+
     @SuppressWarnings("unchecked")
     List<String> getStringList(String key) {
         Object v = values.get(key);

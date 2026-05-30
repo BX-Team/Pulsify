@@ -1,6 +1,8 @@
 package org.bxteam.pulsify.paper;
 
 import org.bxteam.pulsify.StatClient;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.Duration;
@@ -21,6 +23,13 @@ public final class PulsifyPlugin extends JavaPlugin {
             .flushInterval(Duration.ofMinutes(getConfig().getInt("flush-interval-minutes", 5)))
             .autoCollectErrors(getConfig().getBoolean("collect-errors", true))
             .ignorePlugins(getConfig().getStringList("ignored-plugins"))
+            .serverVersion(Bukkit.getMinecraftVersion())
+            .serverSoftware(Bukkit.getName())
+            .pluginVersionResolver(name -> {
+                Plugin p = Bukkit.getPluginManager().getPlugin(name);
+                return p != null ? p.getDescription().getVersion() : null;
+            })
+            .sampleRate(getConfig().getDouble("sample-rate", 1.0))
             .build();
 
         client.pingAsync().thenAccept(ok -> {

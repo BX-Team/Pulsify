@@ -32,6 +32,13 @@ public final class PulsifyPlugin extends Plugin {
             .flushInterval(Duration.ofMinutes(config.getInt("flush-interval-minutes", 5)))
             .autoCollectErrors(config.getBoolean("collect-errors", true))
             .ignorePlugins(config.getStringList("ignored-plugins"))
+            .serverVersion(getProxy().getVersion())
+            .serverSoftware("BungeeCord")
+            .pluginVersionResolver(name -> {
+                net.md_5.bungee.api.plugin.Plugin p = getProxy().getPluginManager().getPlugin(name);
+                return p != null ? p.getDescription().getVersion() : null;
+            })
+            .sampleRate(config.getDouble("sample-rate", 1.0))
             .build();
 
         client.pingAsync().thenAccept(ok -> {
